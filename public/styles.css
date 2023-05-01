@@ -1,4 +1,5 @@
 /* General styles */
+
 * {
     box-sizing: border-box;
     margin: 0;
@@ -8,19 +9,23 @@
 
 html {
     height: 100%;
+    min-height: 100vh;
+    min-width: 100vw;
 }
 
 body {
     font-family: 'Arial', sans-serif;
     background: linear-gradient(#141e30, #243b55);  
     color: #333;
-    /* line-height: 1.6; */
+
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     padding: 20px;
     height: 100%;
+    min-height: 100vh;
+    min-width: 100vw;
 }
 
 h3 {
@@ -37,7 +42,8 @@ button {
 }
 
 input[type="text"],
-input[type="number"] {
+input[type="number"],
+input[type="password"] {
     width: 100%;
     margin-bottom: 10px;
     width: 100%;
@@ -51,6 +57,7 @@ input[type="number"] {
     background: transparent;
 }
 
+
 button {
   
     color: #fff;
@@ -62,7 +69,8 @@ button {
 }
 
 button:hover {
-    background-color: #fff;
+    border: 1px solid #fff;
+    border-radius: 10px;
 }
 
 /* Auth container */
@@ -80,12 +88,14 @@ button:hover {
     box-shadow: 0 15px 25px rgba(0,0,0,.6);
     border-radius: 10px;
     padding: 20px;
-
-
-    width: 100%;
+    width: calc(100% - 40px);
     justify-content: center;
     align-items: center;
+    margin: auto;
+    height: 80vh; /* Set the fixed height */
+    overflow: auto; /* Container becomes scrollable */
 }
+
 
 /* Calorie goal container */
 #calorie-goal-container {
@@ -110,7 +120,7 @@ button:hover {
     font-size: 1.2em;
 }
 
-/* Add this to your CSS file */
+
 #total-container {
     font-size: 24px;
     margin-top: 20px;
@@ -128,6 +138,10 @@ button:hover {
 
 /* Calendar container */
 #calendar-container {
+    margin-top: 20px;
+}
+
+#food-items-container {
     margin-top: 20px;
 }
 
@@ -156,4 +170,54 @@ button:hover {
     color: #c2362a;
   }
   
+  #logout-button {
+    display: flex;
+    flex-direction: row-reverse;
+    position: fixed;
+    top: 15px;
+    right: 15px;
+    
+  }
+  
+  .logout-button:hover {
+ 
+    border: none;
+  }
+   
+
+  /* Weight goal toggle */
+#weight-goal-toggle {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-top: 20px;
+    margin-bottom: 20px;
+  }
+  
+  #weight-goal-toggle label {
+    font-size: 16px;
+    margin: 0 10px;
+    cursor: pointer;
+  }
+  
+  #weight-goal-toggle input[type="radio"] {
+    display: none;
+  }
+  
+  #weight-goal-toggle input[type="radio"] + span {
+    display: inline-block;
+    padding: 5px 10px;
+    border: 1px solid #fff;
+    border-radius: 4px;
+    margin-left: 5px;
+    transition: background-color 0.2s ease;
+  }
+  
+  #weight-goal-toggle input[type="radio"]:checked + span {
+    background-color: #243b55;
+  }
+  
+  #weight-goal-toggle input[type="radio"]:hover + span {
+    background-color: #141e30;
+  }
   
