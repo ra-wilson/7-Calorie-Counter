@@ -40,6 +40,18 @@ $("#calorie-goal-form").submit(function (event) {
 $(".meal-form").on("submit", async function (e) {
   e.preventDefault();
 
+  // Get the currently selected date from the datepicker
+  const selectedDate = $("#datepicker").datepicker("getDate");
+  const formattedDate = selectedDate.toISOString().split("T")[0];
+  // Check if the selected date is in the future
+  const currentDate = new Date();
+  currentDate.setHours(0, 0, 0, 0);
+
+  if (selectedDate > currentDate) {
+    alert("You cannot add meals to future dates.");
+    return;
+  }
+
   if (!firebase.auth().currentUser) {
     alert("Please log in to add meals.");
     return;
@@ -64,17 +76,14 @@ $(".meal-form").on("submit", async function (e) {
       saveDailyCalories();
 
       // Save meal data to Firestore
+      // Save meal data to Firestore
       try {
-        await db
-          .collection("users")
-          .doc(userId)
-          .collection("meals")
-          .add({
-            date: firebase.firestore.Timestamp.fromDate(new Date()),
-            mealType,
-            foodItems,
-            calories: totalCalories,
-          });
+        await db.collection("users").doc(userId).collection("meals").add({
+          date: formattedDate, // Save the meal with the selected date
+          mealType,
+          foodItems,
+          calories: totalCalories,
+        });
       } catch (error) {
         console.error("Error adding meal data to Firestore:", error);
       }
@@ -103,7 +112,6 @@ $(".meal-form").on("submit", async function (e) {
     });
 });
 
-// Function to make AJAX call to Ninja Nutrition API (replace with actual API call)
 // Function to make AJAX call to Ninja Nutrition API
 function getCaloriesFromAPI(query) {
   return new Promise((resolve, reject) => {
@@ -113,7 +121,7 @@ function getCaloriesFromAPI(query) {
       headers: { "X-Api-Key": "i5PsWsLfdY890euq8xNxCg==gDrteQ1qs1O03zXG" },
       contentType: "application/json",
       success: function (result) {
-        console.log(result); // Log the API response
+        console.log(result);
         const calories = Math.round(result[0].calories);
         resolve(calories);
       },
@@ -125,25 +133,37 @@ function getCaloriesFromAPI(query) {
   });
 }
 
-// function getCaloriesFromAPI(query) {
-//   return new Promise((resolve, reject) => {
-//     $.ajax({
-//       method: 'POST',
-//       url: '/api/nutrition',
-//       data: JSON.stringify({ query }),
-//       contentType: 'application/json',
-//       success: function (result) {
-//         console.log(result); // Log the API response
-//         const calories = Math.round(result[0].calories);
-//         resolve(calories);
-//       },
-//       error: function (jqXHR) {
-//         console.error('Error: ', jqXHR.responseText);
-//         reject(jqXHR);
-//       },
-//     });
-//   });
-// }
+async function loadMealsForDate(date) {
+  const userId = firebase.auth().currentUser.uid;
+  const mealsSnapshot = await db
+    .collection("users")
+    .doc(userId)
+    .collection("meals")
+    .where("date", "==", date)
+    .get();
+
+  // Clear the current meal data in the meal sections
+  $(".food-items-container").empty();
+
+  // Iterate through the meal documents and update the meal sections
+  mealsSnapshot.forEach((doc) => {
+    const mealData = doc.data();
+    const mealType = mealData.mealType;
+    const foodItemsContainer = $(`.meal-form[data-meal-type="${mealType}"]`).find(".food-items-container");
+
+    mealData.foodItems.forEach((foodItem, index) => {
+      const foodItemElement = $("<p>").text(`${foodItem} (${mealData.calories} calories)`);
+      const deleteIcon = $("<i>").addClass("fas fa-trash-alt delete-icon");
+      foodItemElement.append(deleteIcon);
+      foodItemsContainer.append(foodItemElement);
+
+      deleteIcon.on("click", () => {
+        // Add logic to remove the meal from Firestore and update the UI
+      });
+    });
+  });
+}
+
 
 $("#login-form").submit(function (event) {
   event.preventDefault();
@@ -190,21 +210,35 @@ $("#show-register").on("click", function (e) {
   $("#register-container").show();
 });
 
-
 $("#datepicker").datepicker({
   onSelect: async function (dateText, inst) {
-    const selectedDate = dateText.split('/').reverse().join('-');
-    const meals = await fetchMealDataForDate(selectedDate);
-    updateMealDisplay(meals);
-    updateCalorieSummary();
+    const selectedDate = dateText.split("/").reverse().join("-");
+    const currentDate = new Date();
+    currentDate.setHours(0, 0, 0, 0);
+    const pickedDate = new Date(selectedDate);
+
+    // Disable the meal input forms if the picked date is in the future
+    if (pickedDate > currentDate) {
+      $(".meal-form input[type='text']").prop("disabled", true);
+      $(".meal-form button[type='submit']").prop("disabled", true);
+      $(".food-items-container").empty();
+      alert("You cannot add meals to future dates.");
+    } else {
+      $(".meal-form input[type='text']").prop("disabled", false);
+      $(".meal-form button[type='submit']").prop("disabled", false);
+      const meals = await fetchMealDataForDate(selectedDate);
+      updateMealDisplay(meals);
+    }
   },
 });
-
 
 async function fetchMealDataForDate(date) {
   const userId = firebase.auth().currentUser.uid;
   const userDocRef = firebase.firestore().collection("users").doc(userId);
-  const querySnapshot = await userDocRef.collection("meals").where("date", "==", firebase.firestore.Timestamp.fromDate(new Date(date))).get();
+  const querySnapshot = await userDocRef
+    .collection("meals")
+    .where("date", "==", firebase.firestore.Timestamp.fromDate(new Date(date)))
+    .get();
 
   if (!querySnapshot.empty) {
     let meals = {
@@ -234,14 +268,12 @@ async function fetchMealDataForDate(date) {
   }
 }
 
-
 function saveDailyCalories() {
   const userId = firebase.auth().currentUser.uid;
   const date = dailyCalories.date;
   const userDocRef = firebase.firestore().collection("users").doc(userId);
   userDocRef.collection("calories").doc(date).set(dailyCalories);
 }
-
 
 function resetDailyCalories() {
   dailyCalories = {
@@ -256,7 +288,7 @@ function resetDailyCalories() {
 
 function updateCalorieSummary() {
   const totalCalories = Object.values(dailyCalories)
-    .filter(value => typeof value === 'number')
+    .filter((value) => typeof value === "number")
     .reduce((a, b) => a + b, 0);
 
   // Update the calorie goal and total calories display
@@ -267,12 +299,16 @@ function updateCalorieSummary() {
   const weightGoal = $('input[name="weight-goal"]:checked').val();
 
   // Change the color based on the goal status and user selection
-  if (weightGoal === 'deficit' && totalCalories < calorieGoal) {
-    $("#total-calories").removeClass('goal-not-met').addClass('goal-met');
-  } else if (weightGoal === 'surplus' && (totalCalories >= calorieGoal - 200 && totalCalories <= calorieGoal + 300)) {
-    $("#total-calories").removeClass('goal-not-met').addClass('goal-met');
+  if (weightGoal === "deficit" && totalCalories < calorieGoal) {
+    $("#total-calories").removeClass("goal-not-met").addClass("goal-met");
+  } else if (
+    weightGoal === "surplus" &&
+    totalCalories >= calorieGoal - 200 &&
+    totalCalories <= calorieGoal + 300
+  ) {
+    $("#total-calories").removeClass("goal-not-met").addClass("goal-met");
   } else {
-    $("#total-calories").removeClass('goal-met').addClass('goal-not-met');
+    $("#total-calories").removeClass("goal-met").addClass("goal-not-met");
   }
 }
 
@@ -302,23 +338,23 @@ function updateMealDisplay(meals) {
   }
 }
 
-
-
-
 const SESSION_EXPIRY_TIME = 10 * 60 * 1000; // 10 minutes in milliseconds
 
 // Check if the user is already logged in when the page is loaded
-$(document).ready(function() {
-  const loginState = localStorage.getItem('loggedIn');
-  const lastActivity = localStorage.getItem('lastActivity');
+$(document).ready(function () {
+  const loginState = localStorage.getItem("loggedIn");
+  const lastActivity = localStorage.getItem("lastActivity");
   const currentTime = new Date().getTime();
 
-  if (loginState === 'true' && (currentTime - lastActivity) < SESSION_EXPIRY_TIME) {
+  if (
+    loginState === "true" &&
+    currentTime - lastActivity < SESSION_EXPIRY_TIME
+  ) {
     showMainContainer();
     updateActivity();
   } else {
-    localStorage.setItem('loggedIn', 'false');
-    localStorage.removeItem('lastActivity');
+    localStorage.setItem("loggedIn", "false");
+    localStorage.removeItem("lastActivity");
     showAuthContainer();
   }
 });
@@ -326,12 +362,12 @@ $(document).ready(function() {
 // Update the user's last activity timestamp
 function updateActivity() {
   const currentTime = new Date().getTime();
-  localStorage.setItem('lastActivity', currentTime);
+  localStorage.setItem("lastActivity", currentTime);
 }
 
 // Log the user in and update the session
 function loginUser() {
-  localStorage.setItem('loggedIn', 'true');
+  localStorage.setItem("loggedIn", "true");
   updateActivity();
   showMainContainer();
 }
@@ -342,8 +378,8 @@ function logoutUser() {
   auth
     .signOut()
     .then(() => {
-      localStorage.setItem('loggedIn', 'false');
-      localStorage.removeItem('lastActivity');
+      localStorage.setItem("loggedIn", "false");
+      localStorage.removeItem("lastActivity");
       showAuthContainer();
       alert("You have been logged out.");
     })
@@ -353,26 +389,22 @@ function logoutUser() {
     });
 }
 
-
 // Set up event listeners for login and logout buttons
-$(document).on('click', '#login-button', loginUser);
-$(document).on('click', '#logout-button', logoutUser);
+$(document).on("click", "#login-button", loginUser);
+$(document).on("click", "#logout-button", logoutUser);
 
 // Update the last activity timestamp whenever the user interacts with the page
-$(document).on('mousemove keydown click', updateActivity);
+$(document).on("mousemove keydown click", updateActivity);
 
 // Show and hide the auth container and main container
 function showAuthContainer() {
-  $('#auth-container').show();
-  $('#main-container').hide();
-  $('#logout-button').hide(); // Hide the logout button when showing the auth container
+  $("#auth-container").show();
+  $("#main-container").hide();
+  $("#logout-button").hide(); // Hide the logout button when showing the auth container
 }
 
 function showMainContainer() {
-  $('#auth-container').hide();
-  $('#main-container').show();
-  $('#logout-button').show(); // Show the logout button when showing the main container
+  $("#auth-container").hide();
+  $("#main-container").show();
+  $("#logout-button").show(); // Show the logout button when showing the main container
 }
-
-
-
